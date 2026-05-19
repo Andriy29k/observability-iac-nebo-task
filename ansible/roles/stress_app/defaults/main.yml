@@ -1,0 +1,6 @@
+---
+stress_app_install_dir: /opt/stress-app
+stress_app_service_name: stress-app
+stress_app_port: 5000
+stress_app_user: "{{ ansible_user | default('azureuser') }}"
+appinsights_connection_string: ""

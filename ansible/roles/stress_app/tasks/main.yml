@@ -1,0 +1,68 @@
+---
+- name: Install OS packages for Python app
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ stress_app_user }}"
+    group: "{{ stress_app_user }}"
+    mode: "0755"
+  loop:
+    - "{{ stress_app_install_dir }}"
+    - /etc/stress-app
+
+- name: Deploy application source
+  ansible.builtin.copy:
+    src: "{{ stress_app_src }}/"
+    dest: "{{ stress_app_install_dir }}/"
+    owner: "{{ stress_app_user }}"
+    group: "{{ stress_app_user }}"
+    mode: "0644"
+    directory_mode: "0755"
+  notify: Restart stress-app
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv "{{ stress_app_install_dir }}/venv"
+    creates: "{{ stress_app_install_dir }}/venv/bin/python"
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ stress_app_install_dir }}/requirements.txt"
+    virtualenv: "{{ stress_app_install_dir }}/venv"
+    state: present
+  notify: Restart stress-app
+
+- name: Deploy environment file
+  ansible.builtin.template:
+    src: stress-app.env.j2
+    dest: /etc/stress-app/env
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart stress-app
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: stress-app.service.j2
+    dest: "/etc/systemd/system/{{ stress_app_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart stress-app
+
+- name: Enable and start stress-app service
+  ansible.builtin.systemd:
+    name: "{{ stress_app_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
