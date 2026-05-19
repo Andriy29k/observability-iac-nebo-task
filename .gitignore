@@ -3,3 +3,5 @@ terraform/*.tfvars
 terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/*.terraform*
+terraform/planfile
+terraform/plan.txt
