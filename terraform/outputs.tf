@@ -27,5 +27,5 @@ output "ssh_to_vm" {
 }
 
 output "url_to_app" {
-    value = "http://${azurerm_public_ip.observability-task-vm-pip.ip_address}:5000"
+  value = "http://${azurerm_public_ip.observability-task-vm-pip.ip_address}:5000"
 }
