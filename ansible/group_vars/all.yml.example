@@ -1,0 +1,4 @@
+---
+stress_app_install_dir: /opt/stress-app
+stress_app_port: 5000
+appinsights_connection_string: ""

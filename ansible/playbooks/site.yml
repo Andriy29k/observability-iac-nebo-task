@@ -1,0 +1,8 @@
+---
+- name: Deploy stress-app to observability VM
+  hosts: all
+  become: true
+  vars:
+    stress_app_src: "{{ playbook_dir }}/../../stress-app"
+  roles:
+    - stress_app

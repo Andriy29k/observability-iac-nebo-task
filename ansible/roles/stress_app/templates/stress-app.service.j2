@@ -1,0 +1,17 @@
+[Unit]
+Description=Stress App
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ stress_app_user }}
+Group={{ stress_app_user }}
+WorkingDirectory={{ stress_app_install_dir }}
+EnvironmentFile=/etc/stress-app/env
+ExecStart={{ stress_app_install_dir }}/venv/bin/python {{ stress_app_install_dir }}/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
