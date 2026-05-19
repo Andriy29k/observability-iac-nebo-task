@@ -77,7 +77,7 @@ resource "azurerm_network_security_group" "observability-task-vm-nsg" {
 resource "azurerm_network_interface_security_group_association" "observability-task-vm-nic-nsg-association" {
   network_interface_id      = azurerm_network_interface.observability-task-nic.id
   network_security_group_id = azurerm_network_security_group.observability-task-vm-nsg.id
-  depends_on = [ azurerm_network_security_group.observability-task-vm-nsg, azurerm_network_interface.observability-task-nic ]
+  depends_on                = [azurerm_network_security_group.observability-task-vm-nsg, azurerm_network_interface.observability-task-nic]
 }
 
 resource "azurerm_network_interface" "observability-task-nic" {
