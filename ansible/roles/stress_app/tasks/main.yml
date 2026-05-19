@@ -1,5 +1,5 @@
 ---
-- name: Install OS packages for Python app
+- name: Install packages for Python app
   ansible.builtin.apt:
     name:
       - python3
@@ -30,7 +30,7 @@
     directory_mode: "0755"
   notify: Restart stress-app
 
-- name: Create Python virtual environment
+- name: Create Python VENV
   ansible.builtin.command:
     cmd: python3 -m venv "{{ stress_app_install_dir }}/venv"
     creates: "{{ stress_app_install_dir }}/venv/bin/python"
