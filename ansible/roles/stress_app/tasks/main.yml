@@ -1,13 +1,15 @@
 ---
-- name: Install packages for Python app
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Python packages for venv
   ansible.builtin.apt:
     name:
       - python3
-      - python3-pip
       - python3-venv
     state: present
-    update_cache: true
-    cache_valid_time: 3600
 
 - name: Create application directories
   ansible.builtin.file:
@@ -18,9 +20,8 @@
     mode: "0755"
   loop:
     - "{{ stress_app_install_dir }}"
-    - /etc/stress-app
 
-- name: Deploy application source
+- name: Copy application
   ansible.builtin.copy:
     src: "{{ stress_app_src }}/"
     dest: "{{ stress_app_install_dir }}/"
@@ -42,12 +43,12 @@
     state: present
   notify: Restart stress-app
 
-- name: Deploy environment file
+- name: Create environment file
   ansible.builtin.template:
     src: stress-app.env.j2
-    dest: /etc/stress-app/env
-    owner: root
-    group: root
+    dest: "{{ stress_app_install_dir }}/.env"
+    owner: "{{ stress_app_user }}"
+    group: "{{ stress_app_user }}"
     mode: "0600"
   notify: Restart stress-app
 
@@ -66,3 +67,11 @@
     enabled: true
     state: started
     daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Dry-run note (systemd start skipped in check mode)
+  ansible.builtin.debug:
+    msg: >-
+      Check mode OK. The unit file is not installed on the VM yet, so starting
+      stress-app is skipped. Run: ansible-playbook playbooks/site.yml
+  when: ansible_check_mode

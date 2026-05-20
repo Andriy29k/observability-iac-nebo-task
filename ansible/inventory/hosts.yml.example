@@ -1,6 +1,0 @@
-all:
-  hosts:
-    observability_vm:
-      ansible_host: "<vm-public-ip>"
-      ansible_user: azureuser
-      ansible_ssh_private_key_file: "~/.ssh/id_ed25519"
