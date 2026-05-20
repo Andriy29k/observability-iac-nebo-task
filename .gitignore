@@ -5,6 +5,5 @@ terraform/*.terraform*
 terraform/planfile
 terraform/plan.txt
 
-ansible/inventory/hosts.yml
 ansible/group_vars/all.yml
 ansible/**/*.retry
