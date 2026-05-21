@@ -1,7 +1,7 @@
 resource "azurerm_resource_group" "observability-task-rg" {
   name     = var.resource_group_name
   location = var.location
-  tags     = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+  tags     = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
 }
 
 resource "azurerm_virtual_network" "observability-task-vnet" {
@@ -9,7 +9,7 @@ resource "azurerm_virtual_network" "observability-task-vnet" {
   location            = azurerm_resource_group.observability-task-rg.location
   resource_group_name = azurerm_resource_group.observability-task-rg.name
   address_space       = [var.vnet_address_space]
-  tags                = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
 }
 
 resource "azurerm_subnet" "public-subnet" {
@@ -25,7 +25,7 @@ resource "azurerm_public_ip" "observability-task-public-ip" {
   resource_group_name = azurerm_resource_group.observability-task-rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  tags                = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
 }
 
 resource "azurerm_network_security_group" "observability-task-vm-nsg" {
@@ -69,7 +69,7 @@ resource "azurerm_network_security_group" "observability-task-vm-nsg" {
     destination_address_prefix = "*"
   }
 
-  tags = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+  tags = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
 
 
 }
@@ -92,7 +92,7 @@ resource "azurerm_network_interface" "observability-task-nic" {
     public_ip_address_id          = azurerm_public_ip.observability-task-public-ip.id
   }
 
-  tags = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+  tags = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
 
 }
 
@@ -124,6 +124,163 @@ resource "azurerm_linux_virtual_machine" "observability-task-vm" {
     version   = var.image_version
   }
 
-  tags = { "env" = "prod", "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+  tags = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES" }
+
+}
+
+resource "azurerm_application_insights" "observability-task-app-insights" {
+  name                = "${var.vm_name}-app-insights"
+  location            = azurerm_resource_group.observability-task-rg.location
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.observability-task-log-analytics.id
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+  depends_on          = [azurerm_log_analytics_workspace.observability-task-log-analytics]
+}
+
+resource "azurerm_log_analytics_workspace" "observability-task-log-analytics" {
+  name                = "${var.vm_name}-log-analytics"
+  location            = azurerm_resource_group.observability-task-rg.location
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  sku                 = "PerGB2018"
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+}
+
+resource "azurerm_monitor_action_group" "observability-task-action-group" {
+  name                = "task-group"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  short_name          = "task-ag"
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  email_receiver {
+    name                    = "email-receiver"
+    email_address           = var.email_receiver
+    use_common_alert_schema = true
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "cpu-metric-alert" {
+  name                = "${var.vm_name}-cpu-alert"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  scopes              = [azurerm_linux_virtual_machine.observability-task-vm.id]
+  description         = "Alert for high CPU usage"
+  severity            = 2
+  enabled             = true
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachines"
+    metric_name      = "Percentage CPU"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 80
+  }
+
+  frequency   = "PT5M"
+  window_size = "PT5M"
+
+  action {
+    action_group_id = azurerm_monitor_action_group.observability-task-action-group.id
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "memory-metric-alert" {
+  name                = "${var.vm_name}-memory-alert"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  scopes              = [azurerm_linux_virtual_machine.observability-task-vm.id]
+  description         = "Alert for high Memory usage"
+  severity            = 2
+  enabled             = true
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachines"
+    metric_name      = "Available Memory Bytes"
+    aggregation      = "Average"
+    operator         = "LessThan"
+    threshold        = 1073741824
+  }
+
+  frequency   = "PT5M"
+  window_size = "PT5M"
+
+  action {
+    action_group_id = azurerm_monitor_action_group.observability-task-action-group.id
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "disk-metric-alert" {
+  name                = "${var.vm_name}-disk-alert"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  scopes              = [azurerm_linux_virtual_machine.observability-task-vm.id]
+  description         = "Alert for high Disk usage"
+  severity            = 2
+  enabled             = true
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachines"
+    metric_name      = "Disk Read Bytes/sec"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 104857600
+  }
+
+  frequency   = "PT5M"
+  window_size = "PT5M"
+
+  action {
+    action_group_id = azurerm_monitor_action_group.observability-task-action-group.id
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "availability-metric-alert" {
+  name                = "${var.vm_name}-availability-alert"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  scopes              = [azurerm_linux_virtual_machine.observability-task-vm.id]
+  description         = "Alert for VM availability"
+  severity            = 1
+  enabled             = true
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachines"
+    metric_name      = "VM Availability"
+    aggregation      = "Average"
+    operator         = "LessThan"
+    threshold        = 1
+  }
+
+  frequency   = "PT5M"
+  window_size = "PT5M"
+
+  action {
+    action_group_id = azurerm_monitor_action_group.observability-task-action-group.id
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "failed-requests-metric-alert" {
+  name                = "${var.vm_name}-failed-requests-alert"
+  resource_group_name = azurerm_resource_group.observability-task-rg.name
+  scopes              = [azurerm_application_insights.observability-task-app-insights.id]
+  description         = "Alert for failed requests in the application"
+  severity            = 2
+  enabled             = true
+  tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
+
+  criteria {
+    metric_namespace = "Microsoft.ApplicationInsights/components"
+    metric_name      = "requests/failed"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = 10
+  }
+
+  frequency   = "PT5M"
+  window_size = "PT5M"
+
+  action {
+    action_group_id = azurerm_monitor_action_group.observability-task-action-group.id
+  }
 
 }

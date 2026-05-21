@@ -29,3 +29,12 @@ output "ssh_to_vm" {
 output "url_to_app" {
   value = "http://${azurerm_public_ip.observability-task-public-ip.ip_address}:5000"
 }
+
+output "email_receiver" {
+  value = var.email_receiver
+}
+
+output "app_insights_connection_string" {
+  value     = azurerm_application_insights.observability-task-app-insights.connection_string
+  sensitive = true
+}

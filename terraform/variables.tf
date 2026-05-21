@@ -62,3 +62,12 @@ variable "storage_account_type" {
 variable "caching_type" {
   type = string
 }
+
+variable "env" {
+  type    = string
+  default = "staging"
+}
+
+variable "email_receiver" {
+  type = string
+}
