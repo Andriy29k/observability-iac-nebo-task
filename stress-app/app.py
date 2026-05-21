@@ -225,21 +225,27 @@ def index():
 @app.route("/api/stress/cpu/<level>", methods=["POST"])
 def stress_cpu(level):
     if level not in ("high", "med", "low", "stop"):
+        track_event("stress_invalid_level", {"resource": "cpu", "level": level})
         return jsonify({"error": "invalid level"}), 400
     if level == "stop":
         stop_cpu_stress()
+        track_event("cpu_stress_stopped", {"level": level})
         return jsonify({"status": "CPU stress stopped"})
     start_cpu_stress(level)
+    track_event("cpu_stress_started", {"level": level})
     return jsonify({"status": f"CPU stress started: {level}"})
 
 @app.route("/api/stress/ram/<level>", methods=["POST"])
 def stress_ram(level):
     if level not in ("high", "med", "low", "stop"):
+        track_event("stress_invalid_level", {"resource": "ram", "level": level})
         return jsonify({"error": "invalid level"}), 400
     if level == "stop":
         stop_ram_stress()
+        track_event("ram_stress_stopped", {"level": level})
         return jsonify({"status": "RAM stress stopped"})
     start_ram_stress(level)
+    track_event("ram_stress_started", {"level": level})
     return jsonify({"status": f"RAM stress started: {level}"})
 
 @app.route("/api/status")
@@ -255,6 +261,7 @@ def status():
 def stop_all():
     stop_cpu_stress()
     stop_ram_stress()
+    track_event("all_stress_stopped", {})
     return jsonify({"status": "All stress stopped"})
 
 if __name__ == "__main__":
