@@ -42,11 +42,11 @@ ansible-playbook playbooks/site.yml                  # real deploy
 
 In `--check` mode the last task cannot start `stress-app` (the unit file is not on the VM yet). That is expected; use a full run for apply.
 
-With App Insights (extra-var, not in git):
+With App Insights from Terraform output (recommended):
 
 ```bash
 ansible-playbook playbooks/site.yml \
-  -e "appinsights_connection_string=InstrumentationKey=...;IngestionEndpoint=..."
+  -e "appinsights_connection_string=$(terraform -chdir=../terraform output -raw app_insights_connection_string)"
 ```
 
 If you prefer an explicit inventory path (always valid):
