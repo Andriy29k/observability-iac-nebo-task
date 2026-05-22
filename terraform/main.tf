@@ -220,7 +220,7 @@ resource "azurerm_monitor_metric_alert" "disk-metric-alert" {
 
   criteria {
     metric_namespace = "Microsoft.Compute/virtualMachines"
-    metric_name      = "Disk Read Bytes/sec"
+    metric_name      = "OS Disk Read Bytes/sec"
     aggregation      = "Average"
     operator         = "GreaterThan"
     threshold        = 104857600
@@ -238,14 +238,14 @@ resource "azurerm_monitor_metric_alert" "availability-metric-alert" {
   name                = "${var.vm_name}-availability-alert"
   resource_group_name = azurerm_resource_group.observability-task-rg.name
   scopes              = [azurerm_linux_virtual_machine.observability-task-vm.id]
-  description         = "Alert for VM availability"
+  description         = "Alert when VM availability metric drops"
   severity            = 1
   enabled             = true
   tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
 
   criteria {
     metric_namespace = "Microsoft.Compute/virtualMachines"
-    metric_name      = "VM Availability"
+    metric_name      = "VmAvailabilityMetric"
     aggregation      = "Average"
     operator         = "LessThan"
     threshold        = 1
@@ -269,7 +269,7 @@ resource "azurerm_monitor_metric_alert" "failed-requests-metric-alert" {
   tags                = { "env" = var.env, "project" = "observability-iac-task", "owner" = "akorot", "subscription" = "VSES", "vm" = var.vm_name }
 
   criteria {
-    metric_namespace = "Microsoft.ApplicationInsights/components"
+    metric_namespace = "Microsoft.Insights/components"
     metric_name      = "requests/failed"
     aggregation      = "Total"
     operator         = "GreaterThan"

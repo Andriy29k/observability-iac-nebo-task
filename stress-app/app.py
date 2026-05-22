@@ -18,9 +18,6 @@ ai_logger = logging.getLogger("app_insights")
 if APPINSIGHTS_CONNECTION_STRING:
     try:
         from opencensus.ext.azure.log_exporter import AzureLogHandler
-        from opencensus.ext.azure import metrics_exporter
-        from opencensus.ext.flask import FlaskMiddleware
-        from opencensus.trace.samplers import ProbabilitySampler
 
         # ── Structured logger → App Insights (traces + customEvents) ──
         handler = AzureLogHandler(connection_string=APPINSIGHTS_CONNECTION_STRING)
@@ -30,9 +27,12 @@ if APPINSIGHTS_CONNECTION_STRING:
 
         AI_ENABLED = True
         print("[AppInsights] Handler attached — logs will flow to Azure.")
-    except ImportError:
+    except ImportError as exc:
         AI_ENABLED = False
-        print("[AppInsights] opencensus-ext-azure not installed. Logs stay local.")
+        print(f"[AppInsights] Import failed: {exc}")
+    except Exception as exc:
+        AI_ENABLED = False
+        print(f"[AppInsights] Setup failed: {exc}")
 else:
     AI_ENABLED = False
     print("[AppInsights] No connection string set — running without Azure logging.")
@@ -87,19 +87,19 @@ def track_exception(exc: Exception, properties: dict = None):
 
 app = Flask(__name__)
 
-# Attach Flask middleware for automatic request telemetry (if available)
+# Attach Flask middleware for automatic HTTP request telemetry (optional)
 if AI_ENABLED:
     try:
-        from opencensus.ext.flask import FlaskMiddleware
+        from opencensus.ext.azure.trace_exporter import AzureExporter
+        from opencensus.ext.flask.flask_middleware import FlaskMiddleware
         from opencensus.trace.samplers import ProbabilitySampler
+
         FlaskMiddleware(
             app,
             sampler=ProbabilitySampler(rate=1.0),
-            exporter=__import__(
-                "opencensus.ext.azure.trace_exporter",
-                fromlist=["AzureExporter"]
-            ).AzureExporter(connection_string=APPINSIGHTS_CONNECTION_STRING),
+            exporter=AzureExporter(connection_string=APPINSIGHTS_CONNECTION_STRING),
         )
+        print("[AppInsights] FlaskMiddleware attached.")
     except Exception as e:
         std_logger.warning("Could not attach FlaskMiddleware: %s", e)
 
