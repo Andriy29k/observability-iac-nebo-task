@@ -140,6 +140,127 @@ Open `http://<vm_public_ip>:5000`, trigger CPU/RAM stress, or:
 curl -X POST http://<vm_public_ip>:5000/api/stress/cpu/high
 ```
 
+## System Monitoring
+
+### Data Collection
+
+System-level telemetry is collected via **Azure Monitor Agent (AMA)** and routed
+through a **Data Collection Rule (DCR)** to the Log Analytics workspace.
+
+To enable monitoring:
+
+1. Portal → **Monitor** → **Data Collection Rules** → **Create**.
+2. Fill in name, region; set platform type to **Linux**.
+3. On the **Resources** tab → **Add resources** → select `application-vm`.
+4. On the **Data sources** tab → **Add data source**:
+   - Type: **Linux Syslog**
+   - Set minimum log level per facility
+5. On the **Destination** tab → select your **Log Analytics workspace**.
+6. **Review + Create**.
+
+Agent status check — run on the VM:
+```bash
+systemctl status azuremonitoragent
+journalctl -u azuremonitoragent -n 30
+```
+
+---
+
+### Available Log Tables
+
+Once the DCR is active, logs are queryable in Log Analytics:
+
+| Table | Contents |
+|-------|----------|
+| `Heartbeat` | Agent liveness, one record per minute |
+| `Syslog` | All Linux syslog facilities (auth, daemon, kern, …) |
+| `InsightsMetrics` | CPU, memory, disk, network (numeric time-series) |
+
+Allow **5–10 minutes** after DCR creation for the first records to appear.
+
+---
+
+### Useful KQL Queries
+
+**Agent heartbeat — confirm VM is reachable:**
+```kusto
+Heartbeat
+| where TimeGenerated > ago(5m)
+| summarize LastHeartbeat = max(TimeGenerated) by Computer
+```
+
+**CPU and memory over time:**
+```kusto
+InsightsMetrics
+| where TimeGenerated > ago(1h)
+| where Name in ("UtilizationPercentage", "availableMB")
+| summarize avg(Val) by bin(TimeGenerated, 5m), Name
+| render timechart
+```
+
+**SSH logins:**
+```kusto
+Syslog
+| where TimeGenerated > ago(24h)
+| where Facility in ("auth", "authpriv")
+| where SyslogMessage has_any ("Accepted password", "Accepted publickey", "session opened")
+| project TimeGenerated, Computer, SeverityLevel, SyslogMessage
+| order by TimeGenerated desc
+```
+
+**stress-app service logs**  
+> The systemd unit runs under the `python` process name — filter by that:
+```kusto
+Syslog
+| where TimeGenerated > ago(1h)
+| where ProcessName == "python"
+| project TimeGenerated, SeverityLevel, SyslogMessage
+| order by TimeGenerated desc
+```
+
+---
+
+### Data Retention
+
+Retention is configured at the **Log Analytics workspace** level, per table.
+
+Default: **90 days free**, up to **730 days** (additional cost beyond 90 days).
+
+```bash
+az monitor log-analytics workspace table update \
+  --resource-group  \
+  --workspace-name  \
+  --name Syslog \
+  --retention-time 91
+```
+
+Or via Portal: **Log Analytics workspace** → **Tables** → select table
+→ **Manage table** → set *Interactive retention* and *Total retention*.
+
+---
+
+### Observability Dashboard
+
+A unified dashboard combining VM metrics, application telemetry, and system logs
+is available as an **Azure Workbook**.
+
+Portal → **Application Insights** → **Workbooks** → **New**.
+
+Recommended structure:
+
+| Section | Visualization | Source |
+|---------|--------------|--------|
+| VM Health (heartbeat) | Tiles | `Heartbeat` |
+| CPU & Memory | Line chart | `InsightsMetrics` |
+| HTTP Requests (success/fail) | Bar chart | `AppRequests` |
+| Response Time (avg / p95) | Line chart | `AppRequests` |
+| Exceptions | Grid | `AppExceptions` |
+| stress-app Logs | Grid | `Syslog` |
+| SSH Logins | Grid | `Syslog` |
+| Errors & Warnings | Grid | `AppTraces` |
+
+---
+
 ## Rollback
 
 | Layer | Procedure |
