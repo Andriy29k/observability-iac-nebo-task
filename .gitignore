@@ -7,3 +7,5 @@ terraform/plan.txt
 
 ansible/group_vars/all.yml
 ansible/**/*.retry
+*.png
+*.mp4
